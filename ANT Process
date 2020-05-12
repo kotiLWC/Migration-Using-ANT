@@ -1,0 +1,120 @@
+Migration using ANT in Salesforce
+Force.com migration tool(based on JAVA),
+is used to deploy the Metadata from one organization to other organization or we can use it to retrieve the metadata from one organization and then make some changes locally and then deploy that metadata again to the same organization. We can also migrate the metadata using Change sets but there are some extra features provided in this ANT migration tool:
+
+The main advantage of this tool is, that it gets the metadata in form of XML files from your server and downloads it locally on your computer. Thus you can make changes in those XML files locally and again deploy the changes to any server instance, any target org that you want.
+It allows you to deploy the same metadata any number of times to any of your server, as you have downloaded the metadata in form of XML files, you can deploy them again and again.
+Change set does not allow you to delete any metadata component from target org. But using ANT migration tool you can delete the components from target org. This is done using destructiveChanges.xml file.
+Some components are not supported to be migrated using change sets but you can migrate them using ANT migration tool.
+It can also be run from command prompt using some specific commands for calling APIs.
+You can also automate your migration process leveraging the capabilities of command prompt .bat files and XML structure of source files.
+This tool works with the help of some XML files that we create in order to use this tool. In those XML files, we provide information about our server ( like credentials, login URL, and some other attributes as well) , information about the operation that we want to perform (these are called targets, like retrieve or deploy, file is build.xml), then information about the components that you want to retrieve or deploy(package.xml).
+
+Below is one basic example. Here we will first retrieve the components from source org and then will deploy those components to the target org. Here is the folder that we have initially. We have build.xml and build.properties file here and one folder named “unpackaged” in which we have our package.xml. This package.xml file contains the list of components to be retrieved from source org.
+
+Below are the details of each file that we have in the current folder structure.
+
+Build.properties : We provide the information about our instance on which we want to perform the operation (deploy or retrieve or any other possible operation). 
+Below is the sample. Here in this file we have only enabled the username and password for source org as we will first retrieve the components from source org and build.xml file will use these credentials. But while deploying those components to target org , we’ll have to changes these credentials info to target org’s credentials, so that in the next target that we run from command prompt to deploy the components, the build.xml file will use the target org’s credentials for deployment of components.This is the file that is referred in the next file which is build.xml. All the lines in the below code that starts with # are considered as comments.
+
+# build.properties
+ 
+# Specify the login credentials for the desired Salesforce organization, and if you have IP restrictions then you have to append your security token with the password.
+ 
+sf.username = sourceorguser@abc.com
+sf.password = testuser123
+ 
+#sf.pkgName = Insert comma separated package names to be retrieved
+ 
+# Use 'https://login.salesforce.com' for production or developer edition (the default if not specified).
+# Use 'https://test.salesforce.com for sandbox.
+ 
+sf.serverurl = https://login.salesforce.com
+ 
+sf.maxPoll = 20
+# If your network requires an HTTP proxy, see http://ant.apache.org/manual/proxy.html for configuration.
+
+Build.xml : Here we provide the actions or we can say the operation that we want to perform ( either retrive or deploy or any other possible operation). 
+These tags are called targets also. So, user can run these targets one by one and complete the task in sequential manner as he/she wants. 
+In the below example we have one retrieve target and one deploy target. Every target has some name which we’ll use when calling these targets from command prompt.
+This file refers build.properties file where we have mentioned all the info required in this file(like username, password, serverurl)
+<project name="Sample usage of Salesforce Ant tasks" default="test" basedir="." xmlns:sf="antlib:com.salesforce">
+ 
+<property file="build.properties"/>
+ <property environment="env"/>
+ 
+<!-- Retrieve an unpackaged set of metadata from your org -->
+ <!-- The file unpackaged/package.xml lists what is to be retrieved -->
+ <target name="retrieveUnpackaged">
+ <!-- The below tag creates a new folder in your directory structure, if the folder with the same name does not exist, otherwise uses the previous folder itself -->
+ <mkdir dir="retrieveUnpackaged"/>
+ 
+ <!-- sf:retrieve retrieves the contents into another directory. we refer the username, password, serverurl, maxPoll from build.properties file that is present -->
+ <!-- In "retrieveTarget" attribute we mention the path of the folder where we want to retrieve the components -->
+ <!-- In "unpackaged" attribute we mention the path of the folder where we have the package.xml file that contains the name of the components to be retrieved -->
+ <sf:retrieve username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" maxPoll="${sf.maxPoll}" retrieveTarget="retrieveUnpackaged" unpackaged="unpackaged/package.xml"/>
+ </target>
+ 
+ <!-- Deploy the unpackaged set of metadata retrieved with retrieveUnpackaged -->
+ <target name="deployUnpackaged">
+ <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" maxPoll="${sf.maxPoll}" deployRoot="retrieveUnpackaged"/>
+ 
+</project>
+
+Package.xml : This is the last xml file that we need.
+We have to mention the API name of components that we want to retrieve from source org. 
+And the same xml can be used while deploying those components to target org.
+
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+ <types>
+ <members>FirstCustomController</members>
+ <members>Utilities</members>
+ <name>ApexClass</name>
+ </types>
+ 
+ <types>
+ <members>Test_Page</members>
+ <name>ApexPage</name>
+ </types>
+ <types>
+ <members>CustomObject__c</members>
+ <members>Account</members>
+ <name>CustomObject</name>
+ </types>
+ <version>29.0</version>
+</Package>
+
+
+After we have all these three files ready, we need to go to the command prompt and go to the same folder location where we have the folder structure as shown above ( where we have build.xml file).
+
+Run the command ant retrieveUnpackaged on the command prompt.
+This has to be the name of the target that you want to run.
+So in the first step we have run a retrieve command in retrieveUnpackaged target. 
+After successfully running this target our directory structure will be like below. 
+
+As in the target we ran right now, we mentioned that system should create new folder with the name retrieveUnpackaged that will contain all the retrieved components with the corresponding package.xml file as well.
+
+Now we have all the components retrieved in the retrieveUnpackaged folder. Now we just need to run another target in our build.xml target that issues a deploy command.
+
+Run the command ant deployUnpackaged on the command prompt. You will end up deploying all the components present in the folder retrieveUnpackaged to the target org.
+
+Before starting using migration tool, you need to do some set-up on your machine in order to get the commands
+executed from command prompt. So, first of all you need to install the JAVA and Force.com migration tool on your system. Below are the steps to have these things done:
+
+Download ANT from http://ant.apache.org/bindownload.cgi
+Extract the downloaded zip file somewhere like C:\apache-ant-1.9.4-bin\apache-ant-1.9.4
+Set this path in system variables as ANT_HOME.
+If PATH system variable already exists then add %ANT_HOME% to your path variable, else add new PATH variable and keep this value.
+Also create a JAVA_HOME environment variable and set the value to the location of your JDK.
+Go to command prompt and type ant -v. If it shows that ‘Apache Ant Version compiled’ then that means we are good to go.
+Till here you have downloaded and configured the required steps for ANT. Now you have to download the Force.com migration tool from your salesforce org ( it can be any org ). Go to Your Name > Setup > Develop > Tools.
+Click the “Force.com Migration Tool” link to download a zip file. Inside this zip file you can find the ant-salesforce.jar file and some sample configuration files.
+Copy the jar file mentioned above and paste it into the lib folder of your ant installation direcotry ‘C:\apache-ant-1.9.4-bin\apache-ant-1.9.4\lib‘.
+Now, you are ready to use ANT with force.com migration tool. You can now deploy or retrieve your salesforce.com Metadata using ANT and command prompt.
+
+Before running the below command you should modify your build.properties file to contain the username and password of the target org.
+
+Refer below link
+https://www.sfdcpoint.com/salesforce/migration-using-ant-in-salesforce/
